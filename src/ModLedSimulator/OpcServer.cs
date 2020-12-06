@@ -39,9 +39,10 @@ namespace ModLedSimulator
             return Task.CompletedTask;
         }
 
-        public async Task<ArraySegment<byte>> GetNextFrame()
+        public async Task<ArraySegment<byte>> GetNextFrame(CancellationToken token)
         {
-            await _frameSemaphore.WaitAsync(_cts.Token);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(token, _cts.Token);
+            await _frameSemaphore.WaitAsync(cts.Token);
             return _currentFrame;
         }
 
@@ -50,7 +51,16 @@ namespace ModLedSimulator
             var buffer = new byte[MaxUDPSize];
             while (!_cts.Token.IsCancellationRequested)
             {
-                var numBytes = await _socket.ReceiveAsync(buffer, SocketFlags.None, _cts.Token);
+                int numBytes;
+                try
+                {
+                    numBytes = await _socket.ReceiveAsync(buffer, SocketFlags.None, _cts.Token);
+                }
+                catch (Exception)
+                {
+
+                    throw;
+                }
                 HandleOpc(new ArraySegment<byte>(buffer, 0, numBytes));
             }
         }

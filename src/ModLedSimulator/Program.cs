@@ -55,18 +55,23 @@ namespace ModLedSimulator
 
             foreach (var panel in _panels)
             {
-                panel.NextFrameTask = panel.Server.GetNextFrame();
+                panel.NextFrameTask = panel.Server.GetNextFrame(cts.Token);
             }
 
             while (!cts.IsCancellationRequested)
             {
-                var task = await Task.WhenAny(_panels.Select(x => x.NextFrameTask));
+                // this relies on the implementation detail that WhenAny always returns the first completed task in the list so we don't output the same panel all the time
+                var tasks = _panels
+                    .OrderBy(x => x.LastFrameTime)
+                    .Select(x => x.NextFrameTask);
+                var task = await Task.WhenAny(tasks);
                 var panel = _panels.First(x => x.NextFrameTask == task);
+                panel.LastFrameTime = DateTime.UtcNow;
                 var result = task.Result;
 
-                OutputFrame(result, panel.X, panel.Y);
+                OutputFrame(result, panel.X, panel.Y, cts.Token);
 
-                panel.NextFrameTask = panel.Server.GetNextFrame();
+                panel.NextFrameTask = panel.Server.GetNextFrame(cts.Token);
             }
 
             foreach (var panel in _panels)
@@ -75,7 +80,7 @@ namespace ModLedSimulator
             }
         }
 
-        private static void OutputFrame(ArraySegment<byte> data, int panelX, int panelY)
+        private static void OutputFrame(ArraySegment<byte> data, int panelX, int panelY, CancellationToken token)
         {
             if (data.Count != 16 * 16 * 3)
             {
@@ -83,15 +88,12 @@ namespace ModLedSimulator
                 return;
             }
 
-            Console.Out.Write("\x1B[?25l");
-
-            var sb = new StringBuilder(256);
+            var sb = new StringBuilder(1000);
+            sb.Append("\x1B[?25l"); // hide cursor
 
             for (int y = 0; y < 16; y++)
             {
-                Console.CursorTop = panelY * 16 + y;
-                Console.CursorLeft = panelX * 16 * 2;
-                sb.Clear();
+                sb.Append($"\x1B[{panelY * 16 + y + 1};{panelX * 16 * 2 + 1}H"); // set cursor pos
                 for (int x = 0; x < 16; x++)
                 {
                     var pixelIndex = y * 16 + x;
@@ -102,8 +104,10 @@ namespace ModLedSimulator
 
                     sb.Append($"\x1B[38;2;{r};{g};{b}m##");
                 }
-                Console.Out.Write(sb.ToString());
             }
+            if (token.IsCancellationRequested)
+                return;
+            Console.Out.Write(sb.ToString());
         }
 
         private class PanelInfo
@@ -111,6 +115,7 @@ namespace ModLedSimulator
             public int X { get; set; }
             public int Y { get; set; }
             public OpcServer Server { get; set; }
+            public DateTime LastFrameTime { get; set; }
             public Task<ArraySegment<byte>> NextFrameTask { get; set; }
         }
     }
