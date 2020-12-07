@@ -1,4 +1,5 @@
 ﻿using CommandLine;
+using ModLedSimulator.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -108,15 +109,6 @@ namespace ModLedSimulator
             if (token.IsCancellationRequested)
                 return;
             Console.Out.Write(sb.ToString());
-        }
-
-        private class PanelInfo
-        {
-            public int X { get; set; }
-            public int Y { get; set; }
-            public OpcServer Server { get; set; }
-            public DateTime LastFrameTime { get; set; }
-            public Task<ArraySegment<byte>> NextFrameTask { get; set; }
         }
     }
 }

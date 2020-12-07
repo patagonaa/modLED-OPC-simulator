@@ -4,9 +4,9 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ModLedSimulator
+namespace ModLedSimulator.Common
 {
-    class OpcServer
+    public class OpcServer
     {
         private const int MaxUDPSize = 0x10000;
         private Socket _socket;
@@ -14,7 +14,7 @@ namespace ModLedSimulator
         private CancellationTokenSource _cts = new CancellationTokenSource();
 
         private SemaphoreSlim _frameSemaphore = new SemaphoreSlim(0, 1);
-        private ArraySegment<byte> _currentFrame = null;
+        private ArraySegment<byte> _currentFrame;
 
         public OpcServer(int port = 7890)
         {
@@ -46,7 +46,7 @@ namespace ModLedSimulator
             return _currentFrame;
         }
 
-        private async Task Worker()
+        private Task Worker()
         {
             var buffer = new byte[MaxUDPSize];
             while (!_cts.Token.IsCancellationRequested)
@@ -54,7 +54,7 @@ namespace ModLedSimulator
                 int numBytes;
                 try
                 {
-                    numBytes = await _socket.ReceiveAsync(buffer, SocketFlags.None, _cts.Token);
+                    numBytes = _socket.Receive(buffer);
                 }
                 catch (Exception)
                 {
@@ -63,6 +63,8 @@ namespace ModLedSimulator
                 }
                 HandleOpc(new ArraySegment<byte>(buffer, 0, numBytes));
             }
+
+            return Task.CompletedTask;
         }
 
         private void HandleOpc(ArraySegment<byte> buffer)
