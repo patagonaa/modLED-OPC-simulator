@@ -37,7 +37,7 @@ namespace ModLedSimulator.WinForms
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 551);
             this.Name = "MainForm";
-            this.Text = "MainForm";
+            this.Text = "modLED Simulator";
             this.ResumeLayout(false);
 
         }
